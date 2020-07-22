@@ -619,12 +619,17 @@ def _migrate(dom, dst_uri, **kwargs):
     :param dom: domain object to migrate
     :param dst_uri: destination URI
     :param kwargs:
+        - offline: If set to True it will migrate the domain definition
+                   without starting the domain on destination and without
+                   stopping it on source host. Defalt value is False.
         - copy_storage: migrate non-shared storage
             "all": full disk copy
             "incremental": incremental copy
         - username: username to connect with target host
         - password: password to connect with target host
     """
+    migrated_state = libvirt.VIR_DOMAIN_RUNNING_MIGRATED
+
     flags = libvirt.VIR_MIGRATE_LIVE
     flags |= libvirt.VIR_MIGRATE_PERSIST_DEST
     flags |= libvirt.VIR_MIGRATE_UNDEFINE_SOURCE
@@ -632,6 +637,10 @@ def _migrate(dom, dst_uri, **kwargs):
     if __salt__["config.get"]("virt:tunnel"):
         flags |= libvirt.VIR_MIGRATE_PEER2PEER
         flags |= libvirt.VIR_MIGRATE_TUNNELLED
+
+    if kwargs.get("offline") == True:
+        flags |= libvirt.VIR_MIGRATE_OFFLINE
+        migrated_state = libvirt.VIR_DOMAIN_RUNNING_UNPAUSED
 
     copy_storage = kwargs.get("copy_storage")
     if copy_storage:
@@ -652,7 +661,7 @@ def _migrate(dom, dst_uri, **kwargs):
         if new_dom:
             state = new_dom.state()
         dst_conn.close()
-        return state and libvirt.VIR_DOMAIN_RUNNING_MIGRATED in state
+        return state and migrated_state in state
     except libvirt.libvirtError as err:
         dst_conn.close()
         raise CommandExecutionError(err.get_error_message())
@@ -3734,6 +3743,9 @@ def migrate_non_shared(vm_, target, ssh=False, **kwargs):
         .. deprecated:: 3002
 
     :param kwargs:
+        - offline: If set to True it will migrate the domain definition
+                   without starting the domain on destination and without
+                   stopping it on source host. Defalt value is False.
         - username: username to connect with target host
         - password: password to connect with target host
 
@@ -3775,6 +3787,9 @@ def migrate_non_shared_inc(vm_, target, ssh=False, **kwargs):
         .. deprecated:: 3002
 
     :param kwargs:
+        - offline: If set to True it will migrate the domain definition
+                   without starting the domain on destination and without
+                   stopping it on source host. Defalt value is False.
         - username: username to connect with target host
         - password: password to connect with target host
 
@@ -3816,6 +3831,9 @@ def migrate(vm_, target, ssh=False, **kwargs):
        .. deprecated:: 3002
 
     :param kwargs:
+        - offline: If set to True it will migrate the domain definition
+                   without starting the domain on destination and without
+                   stopping it on source host. Defalt value is False.
         - copy_storage: migrate non-shared storage
             "all": full disk copy
             "incremental": incremental copy
