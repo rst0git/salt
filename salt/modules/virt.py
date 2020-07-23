@@ -628,6 +628,9 @@ def _migrate(dom, dst_uri, **kwargs):
                            without starting the domain on destination and without
                            stopping it on source host. Defalt value is False.
         - max_bandwidth:   The maximum bandwidth (in MiB/s) that will be used.
+        - max_downtime:    Set maximum tolerable downtime for live-migration.
+                           The value represents a number of milliseconds the guest
+                           is allowed to be down at the end of live migration.
         - copy_storage:    Migrate non-shared storage. It must be one of the
                            following values:
             - all:         Full disk copy
@@ -658,6 +661,14 @@ def _migrate(dom, dst_uri, **kwargs):
         except ValueError:
             raise SaltInvocationError("Invalid max_bandwidth value: %s" % max_bandwidth)
         dom.migrateSetMaxSpeed(bandwidth_value)
+
+    max_downtime = kwargs.get("max_downtime")
+    if max_downtime:
+        try:
+            downtime_value = int(max_downtime)
+        except ValueError:
+            raise SaltInvocationError("Invalid max_downtime value: %s" % max_downtime)
+        dom.migrateSetMaxDowntime(downtime_value)
 
     if kwargs.get("offline") == True:
         flags |= libvirt.VIR_MIGRATE_OFFLINE
@@ -3773,6 +3784,9 @@ def migrate_non_shared(vm_, target, ssh=False, **kwargs):
                           without starting the domain on destination and without
                           stopping it on source host. Defalt value is False.
         - max_bandwidth:  The maximum bandwidth (in MiB/s) that will be used.
+        - max_downtime:   Set maximum tolerable downtime for live-migration.
+                          The value represents a number of milliseconds the guest
+                          is allowed to be down at the end of live migration.
         - username:       Username to connect with target host
         - password:       Password to connect with target host
 
@@ -3823,6 +3837,9 @@ def migrate_non_shared_inc(vm_, target, ssh=False, **kwargs):
                           without starting the domain on destination and without
                           stopping it on source host. Defalt value is False.
         - max_bandwidth:  The maximum bandwidth (in MiB/s) that will be used.
+        - max_downtime:   Set maximum tolerable downtime for live-migration.
+                          The value represents a number of milliseconds the guest
+                          is allowed to be down at the end of live migration.
         - username:       Username to connect with target host
         - password:       Password to connect with target host
 
@@ -3873,6 +3890,9 @@ def migrate(vm_, target, ssh=False, **kwargs):
                            without starting the domain on destination and without
                            stopping it on source host. Defalt value is False.
         - max_bandwidth:   The maximum bandwidth (in MiB/s) that will be used.
+        - max_downtime:    Set maximum tolerable downtime for live-migration.
+                           The value represents a number of milliseconds the guest
+                           is allowed to be down at the end of live migration.
         - copy_storage:    Migrate non-shared storage. It must be one of the
                            following values:
             - all:         Full disk copy
