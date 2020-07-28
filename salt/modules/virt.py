@@ -644,8 +644,10 @@ def _migrate(dom, dst_uri, **kwargs):
         - comp_xbzrle_cache: Set the size of page cache for xbzrle compression in bytes.
         - copy_storage:    Migrate non-shared storage. It must be one of the
                            following values:
-            - all:         Full disk copy
-            - incremental: Incremental copy
+                - all:         Full disk copy
+                - incremental: Incremental copy
+        - postcopy:        Enable the use of post-copy migration.
+        - postcopy_bandwidth: The maximum bandwidth allowed in post-copy phase. (MiB/s)
         - username:        Username to connect with target host
         - password:        Password to connect with target host
     """
@@ -677,6 +679,20 @@ def _migrate(dom, dst_uri, **kwargs):
             )
         flags |= libvirt.VIR_MIGRATE_PEER2PEER
         flags |= libvirt.VIR_MIGRATE_TUNNELLED
+
+    if kwargs.get("postcopy") == True:
+        flags |= libvirt.VIR_MIGRATE_POSTCOPY
+
+    postcopy_bandwidth = kwargs.get("postcopy_bandwidth")
+    if postcopy_bandwidth:
+        try:
+            postcopy_bandwidth_value = int(postcopy_bandwidth)
+        except ValueError:
+            raise SaltInvocationError("Invalid postcopy_bandwidth value")
+        dom.migrateSetMaxSpeed(
+            postcopy_bandwidth_value,
+            flags=VIR_DOMAIN_MIGRATE_MAX_SPEED_POSTCOPY,
+        )
 
     max_bandwidth = kwargs.get("max_bandwidth")
     if max_bandwidth:
@@ -728,6 +744,7 @@ def _migrate(dom, dst_uri, **kwargs):
             flags |= libvirt.VIR_MIGRATE_NON_SHARED_INC
         else:
             raise SaltInvocationError("invalid copy_storage value")
+
     try:
         state = False
         dst_conn = __get_conn(
@@ -3844,6 +3861,8 @@ def migrate_non_shared(vm_, target, ssh=False, **kwargs):
         - comp_mt_threads: Set number of compress threads on source host.
         - comp_mt_dthreads: Set number of decompress threads on target host.
         - comp_xbzrle_cache: Set the size of page cache for xbzrle compression in bytes.
+        - postcopy:        Enable the use of post-copy migration.
+        - postcopy_bandwidth: The maximum bandwidth allowed in post-copy phase. (MiB/s)
         - username:       Username to connect with target host
         - password:       Password to connect with target host
 
@@ -3908,6 +3927,8 @@ def migrate_non_shared_inc(vm_, target, ssh=False, **kwargs):
         - comp_mt_threads: Set number of compress threads on source host.
         - comp_mt_dthreads: Set number of decompress threads on target host.
         - comp_xbzrle_cache: Set the size of page cache for xbzrle compression in bytes.
+        - postcopy:        Enable the use of post-copy migration.
+        - postcopy_bandwidth: The maximum bandwidth allowed in post-copy phase. (MiB/s)
         - username:       Username to connect with target host
         - password:       Password to connect with target host
 
@@ -3974,8 +3995,10 @@ def migrate(vm_, target, ssh=False, **kwargs):
         - comp_xbzrle_cache: Set the size of page cache for xbzrle compression in bytes.
         - copy_storage:    Migrate non-shared storage. It must be one of the
                            following values:
-            - all:         Full disk copy
-            - incremental: Incremental copy
+                - all:         Full disk copy
+                - incremental: Incremental copy
+        - postcopy:        Enable the use of post-copy migration.
+        - postcopy_bandwidth: The maximum bandwidth allowed in post-copy phase. (MiB/s)
         - username:        Username to connect with target host
         - password:        Password to connect with target host
 
@@ -4024,6 +4047,28 @@ def migrate(vm_, target, ssh=False, **kwargs):
     ret = _migrate(dom, dst_uri, **kwargs)
     conn.close()
     return ret
+
+
+def migrate_start_postcopy(vm_):
+    """
+    Starts post-copy migration. This function has to be called
+    while live migration is in progress and it has been initiated
+    with the `postcopy=True` option.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt '*' virt.migrate_start_postcopy <domain>
+    """
+    conn = __get_conn()
+    dom = _get_domain(conn, vm_)
+    try:
+        dom.migrateStartPostCopy()
+    except libvirt.libvirtError as err:
+        conn.close()
+        raise CommandExecutionError(err.get_error_message())
+    conn.close()
 
 
 def seed_non_shared_migrate(disks, force=False):
